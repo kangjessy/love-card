@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Tebak Kartu</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <style>
+    .card-container {
+      display: inline-grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      justify-items: center;
+      position: relative;
+      z-index: 1;
+      margin-top: 20px;
+      margin-left: 30%;
+    }
+    .card {
+      width: 100px;
+      height: 150px;
+      margin: 10px;
+      perspective: 1000px;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      cursor: pointer;
+    }
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+    }
+    .card-front {
+      background-color: #007bff;
+    }
+    .card-back {
+      background-color: #bebebe;
+      transform: rotateY(180deg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .card.matched {
+      visibility: hidden;
+      transition: visibility 0s 0.6s;
+    }
+    .heart-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0;
+    }
+    .heart {
+      width: 200px;
+      height: 200px;
+    }
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+    .message {
+      font-size: 24px;
+      color: #ff0000;
+      margin-top: 20px;
+      opacity: 0;
+    }
+    .additional-message, .third-message, .fourth-message, .final-message {
+      font-size: 18px;
+      color: #0000ff; /* Change color to blue */
+      margin-top: 20px;
+      opacity: 0;
+    }
+    .additional-message, .third-message, .fourth-message, .final-message {
+      font-size: 18px;
+    }
+    .popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      background-color: white;
+      padding: 20px;
+      border: 2px solid #000;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      text-align: center;
+    }
+    .popup .btn {
+      margin-top: 10px;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="heart-container">
+    <div class="heart">
+      <svg viewBox="0 0 24 24">
+        <path id="heartPath" fill="#ff0000" stroke="#ff0000" stroke-width="2" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+    </div>
+    <div class="message">Aku suka kamu</div>
+    <div class="additional-message">Tapi gausah kamu jawab</div>
+    <div class="third-message">gpp ya aku suka kamu? bukan berarti kamu harus suka aku juga kan? bukan berarti juga kamu harus bales ini kan?</div>
+    <div class="fourth-message">Kalau pun rasamu berbeda, kita tidak perlu mengubah sikap bukan?</div>
+    <div class="final-message">Intinya, aku suka kamu. Kalau gasuka ini, klik tombol Ga Suka. kalau suka, klik tombol Suka</div>
+  </div>
+  <div class="card-container">
+    <!-- Cards will be dynamically inserted here by JavaScript -->
+  </div>
+</div>
+
+<div class="popup" id="popup">
+  <p>Apa kamu suka pesan ini?</p>
+  <button class="btn btn-danger" id="btn-dislike">Ga Suka</button>
+  <button class="btn btn-success" id="btn-like">Suka</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.3/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.3/DrawSVGPlugin.min.js"></script>
+<script>
+  const cardsData = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6];
+  let flippedCards = [];
+  let matchedCount = 0;
+  const sheetApiUrl = "https://script.google.com/macros/s/AKfycbyWHS_ab5hSze4mkvqMdLpHsnM3lJHq_0zMfsLTyn6_uFUAK74wJkpAS9dJVDvoCeaQ/exec"; // Replace with your Google Apps Script URL
+
+  // Function to shuffle the cards
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  // Function to create card elements
+  function createCards() {
+    const cardContainer = document.querySelector('.card-container');
+    shuffle(cardsData);
+    cardsData.forEach((number, index) => {
+      const card = document.createElement('div');
+      card.classList.add('card');
+      card.innerHTML = `
+        <div class="card-inner">
+          <div class="card-front"></div>
+          <div class="card-back">${number}</div>
+        </div>
+      `;
+      card.addEventListener('click', () => flipCard(card, number));
+      cardContainer.appendChild(card);
+    });
+  }
+
+  // Function to handle card flip
+  function flipCard(card, number) {
+    if (flippedCards.length < 2 && !card.classList.contains('flipped') && !card.classList.contains('matched')) {
+      card.classList.add('flipped');
+      flippedCards.push({ card, number });
+
+      if (flippedCards.length === 2) {
+        checkMatch();
+      }
+    }
+  }
+
+  // Function to check if the flipped cards match
+  function checkMatch() {
+    const [firstCard, secondCard] = flippedCards;
+    if (firstCard.number === secondCard.number) {
+      firstCard.card.classList.add('matched');
+      secondCard.card.classList.add('matched');
+      matchedCount += 2;
+      if (matchedCount === cardsData.length) {
+        setTimeout(showHeartAnimation, 600);
+      }
+      flippedCards = [];
+    } else {
+      setTimeout(() => {
+        firstCard.card.classList.remove('flipped');
+        secondCard.card.classList.remove('flipped');
+        flippedCards = [];
+      }, 1000);
+    }
+  }
+
+  // Function to show heart animation
+  function showHeartAnimation() {
+    const heartContainer = document.querySelector('.heart-container');
+    const message = document.querySelector('.message');
+    const additionalMessage = document.querySelector('.additional-message');
+    const thirdMessage = document.querySelector('.third-message');
+    const fourthMessage = document.querySelector('.fourth-message');
+    const finalMessage = document.querySelector('.final-message');
+    const popup = document.getElementById('popup');
+
+    heartContainer.style.opacity = 1;
+    gsap.fromTo("#heartPath", {drawSVG: "0%"}, {duration: 2, drawSVG: "100%"});
+    gsap.fromTo(".heart", {scale: 0}, {duration: 1, scale: 1, ease: "back.out(1.7)"});
+    gsap.to(message, {duration: 1, opacity: 1, delay: 2});
+    gsap.to(additionalMessage, {duration: 1, opacity: 1, delay: 3});
+    gsap.to(thirdMessage, {duration: 1, opacity: 1, delay: 4});
+    gsap.to(fourthMessage, {duration: 1, opacity: 1, delay: 5});
+    gsap.to(finalMessage, {duration: 1, opacity: 1, delay: 6});
+    
+    // Show popup 2 seconds after the final message
+    gsap.to(popup, {duration: 1, opacity: 1, display: 'block', delay: 8});
+  }
+
+  // Function to make "Ga Suka" button move away from cursor
+  function moveButton() {
+  const button = document.getElementById('btn-dislike');
+  const popup = document.getElementById('popup');
+  const maxX = popup.clientWidth - button.clientWidth;
+  const maxY = popup.clientHeight - button.clientHeight;
+  const minDistance = 20; // Minimum distance to move the button away from the current position
+
+  let randX, randY;
+  do {
+    randX = Math.floor(Math.random() * maxX);
+    randY = Math.floor(Math.random() * maxY);
+  } while (Math.abs(randX - button.offsetLeft) < minDistance || Math.abs(randY - button.offsetTop) < minDistance);
+
+  button.style.transform = `translate(${randX}px, ${randY}px)`;
+}
+
+
+  // Function to send data to Google Sheets
+  function sendData(response) {
+    fetch(sheetApiUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ response }),
+    }).then(() => {
+      alert('Data terkirim ke Google Sheets');
+    }).catch((error) => {
+      console.error('Error:', error);
+    });
+  }
+
+  // Add event listeners to buttons
+  document.addEventListener('DOMContentLoaded', () => {
+    const dislikeButton = document.getElementById('btn-dislike');
+    const likeButton = document.getElementById('btn-like');
+
+    dislikeButton.addEventListener('mouseover', moveButton);
+    likeButton.addEventListener('click', () => sendData('Bila Suka Jessy'));
+  });
+
+  // Initialize the game
+  createCards();
+</script>
+
+</body>
+</html>
